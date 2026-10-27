@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>文化祭ダーツ 3投カウントアップ</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- PeerJS CDN for Real-time Smartphone <-> iPad Sync -->
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- Google Fonts (Inter & Orbitron for neon numbers) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f3f4f6;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        /* Custom Glow effects */
+        .neon-glow-red {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.5), inset 0 0 10px rgba(239, 68, 68, 0.3);
+        }
+        .neon-glow-gold {
+            box-shadow: 0 0 18px rgba(245, 158, 11, 0.5);
+        }
+        /* Hide scrollbars for smooth presentation */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden bg-slate-950 text-slate-100">
+
+    <!-- CONNECTION BANNER / MODE HEADER -->
+    <div id="connection-banner" class="bg-slate-900 border-b border-slate-800 px-4 py-2.5 text-xs sm:text-sm">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            
+            <!-- App Mode Status Badge -->
+            <div class="flex items-center space-x-2">
+                <span id="app-mode-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                    <i class="fa-solid fa-desktop mr-1"></i> 単体モード (iPad/PC)
+                </span>
+                <span id="sync-status" class="flex items-center space-x-1.5 text-slate-400 font-semibold">
+                    <span class="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block" id="status-dot"></span>
+                    <span id="status-text">未接続</span>
+                </span>
+            </div>
+
+            <!-- Mode Selector / Room Sync Controls -->
+            <div class="flex items-center space-x-2">
+                <!-- iPad/Host Mode Info -->
+                <div id="host-controls" class="flex items-center space-x-2">
+                    <span class="text-slate-400 font-bold hidden sm:inline">ルームID:</span>
+                    <span id="room-code-display" class="font-orbitron font-extrabold text-rose-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 tracking-wider">------</span>
+                    <button onclick="showRoomQRModal()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-bold border border-slate-700 transition-all flex items-center space-x-1">
+                        <i class="fa-solid fa-qrcode"></i>
+                        <span class="hidden sm:inline">スマホ接続QR</span>
+                    </button>
+                </div>
+
+                <!-- Smartphone Connect Input Form -->
+                <div id="client-controls" class="hidden items-center space-x-1">
+                    <input type="text" id="input-room-code" placeholder="6桁のルームID" maxlength="6"
+                           class="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-center font-orbitron text-xs text-white uppercase focus:border-rose-500 focus:outline-none">
+                    <button onclick="connectToHost()" class="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-bold text-xs transition-all shadow-md">
+                        接続
+                    </button>
+                </div>
+
+                <!-- Switch Mode Button -->
+                <button onclick="toggleModeSelectionModal()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold border border-slate-700 text-xs">
+                    <i class="fa-solid fa-right-left mr-1"></i> モード切替
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Header -->
+    <header class="bg-slate-900/90 border-b border-slate-800 px-4 py-3 sticky top-0 z-30 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-rose-500/30">
+                    <i class="fa-solid font-bold fa-bullseye text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-xl font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-rose-400 via-purple-300 to-cyan-400">
+                        文化祭ダーツ 3投カウントアップ
+                    </h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">スマホ入力・iPad大画面表示リアルタイム連携アプリ</p>
+                </div>
+            </div>
+
+            <!-- Tab Navigation Buttons -->
+            <nav class="flex items-center space-x-1 sm:space-x-2 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
+                <button id="nav-input" onclick="switchTab('input')" class="flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 bg-rose-600 text-white shadow-md">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span>スコア入力</span>
+                </button>
+                <button id="nav-ranking" onclick="switchTab('ranking')" class="flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50">
+                    <i class="fa-solid fa-trophy"></i>
+                    <span>ランキング</span>
+                </button>
+                <button id="nav-settings" onclick="switchTab('settings')" class="flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50">
+                    <i class="fa-solid fa-gear"></i>
+                    <span class="hidden sm:inline">設定</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- MAIN APP CONTAINER -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col">
+
+        <!-- ================= PAGE 1: INPUT SCORE PAGE ================= -->
+        <section id="page-input" class="space-y-4">
+            <!-- Player Name & Category Input Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                    
+                    <!-- Player Name -->
+                    <div class="md:col-span-6 flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                        <label for="player-name" class="text-slate-400 text-xs sm:text-sm font-bold whitespace-nowrap flex items-center">
+                            <i class="fa-solid fa-user text-rose-400 mr-2"></i> プレイヤー/チーム名:
+                        </label>
+                        <input type="text" id="player-name" placeholder="例: ダーツ太郎 (3年1組)" 
+                               class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white font-medium focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all text-base sm:text-lg placeholder-slate-600">
+                    </div>
+
+                    <!-- Category Selector -->
+                    <div class="md:col-span-6 flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                        <span class="text-slate-400 text-xs sm:text-sm font-bold whitespace-nowrap flex items-center">
+                            <i class="fa-solid fa-users text-cyan-400 mr-2"></i> 部門:
+                        </span>
+                        <div class="grid grid-cols-3 gap-2 w-full">
+                            <button id="cat-btn-junior" onclick="selectInputCategory('中学生以下')" class="py-2.5 px-2 text-xs sm:text-sm font-bold rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all text-center truncate">
+                                👶 中学生以下
+                            </button>
+                            <button id="cat-btn-high" onclick="selectInputCategory('高校生')" class="py-2.5 px-2 text-xs sm:text-sm font-bold rounded-xl border border-rose-500 bg-rose-600 text-white shadow-md transition-all text-center truncate">
+                                🎓 高校生
+                            </button>
+                            <button id="cat-btn-parent" onclick="selectInputCategory('保護者')" class="py-2.5 px-2 text-xs sm:text-sm font-bold rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all text-center truncate">
+                                👔 保護者
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Total Score Summary Display -->
+                <div class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl px-4 sm:px-6 py-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs uppercase tracking-widest text-slate-400 font-bold">Total Score</span>
+                        <span id="selected-category-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">高校生</span>
+                    </div>
+                    <div class="flex items-baseline space-x-2">
+                        <span id="total-score-display" class="font-orbitron text-4xl sm:text-5xl font-black text-rose-500 tracking-wider">0</span>
+                        <span class="text-xs text-slate-500 font-semibold">/ 150 pts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Darts Inputs Grid (1st, 2nd, 3rd) -->
+            <div class="grid grid-cols-3 gap-2 sm:gap-4">
+                <!-- Dart 1 -->
+                <div id="dart-card-0" onclick="setActiveDart(0)" class="cursor-pointer bg-slate-900 border-2 border-rose-500/80 rounded-2xl p-3 sm:p-4 text-center transition-all relative overflow-hidden shadow-lg shadow-rose-950/30">
+                    <div class="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">1st Dart</div>
+                    <div id="dart-val-0" class="font-orbitron text-2xl sm:text-4xl font-extrabold text-white my-1">-</div>
+                    <div id="dart-pts-0" class="text-xs sm:text-sm font-semibold text-rose-400">0 pts</div>
+                    <div id="active-indicator-0" class="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></div>
+                </div>
+                <!-- Dart 2 -->
+                <div id="dart-card-1" onclick="setActiveDart(1)" class="cursor-pointer bg-slate-900 border-2 border-slate-800 rounded-2xl p-3 sm:p-4 text-center transition-all relative overflow-hidden">
+                    <div class="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">2nd Dart</div>
+                    <div id="dart-val-1" class="font-orbitron text-2xl sm:text-4xl font-extrabold text-white my-1">-</div>
+                    <div id="dart-pts-1" class="text-xs sm:text-sm font-semibold text-slate-400">0 pts</div>
+                    <div id="active-indicator-1" class="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 hidden"></div>
+                </div>
+                <!-- Dart 3 -->
+                <div id="dart-card-2" onclick="setActiveDart(2)" class="cursor-pointer bg-slate-900 border-2 border-slate-800 rounded-2xl p-3 sm:p-4 text-center transition-all relative overflow-hidden">
+                    <div class="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">3rd Dart</div>
+                    <div id="dart-val-2" class="font-orbitron text-2xl sm:text-4xl font-extrabold text-white my-1">-</div>
+                    <div id="dart-pts-2" class="text-xs sm:text-sm font-semibold text-slate-400">0 pts</div>
+                    <div id="active-indicator-2" class="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 hidden"></div>
+                </div>
+            </div>
+
+            <!-- Touch Pad Input Area -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+                
+                <!-- Multiplier Selector -->
+                <div class="grid grid-cols-3 gap-2">
+                    <button id="mult-1" onclick="setMultiplier(1)" class="py-3 rounded-xl font-bold text-xs sm:text-base border border-slate-700 bg-rose-600 text-white shadow-md transition-all">
+                        Single (x1)
+                    </button>
+                    <button id="mult-2" onclick="setMultiplier(2)" class="py-3 rounded-xl font-bold text-xs sm:text-base border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all">
+                        Double (x2)
+                    </button>
+                    <button id="mult-3" onclick="setMultiplier(3)" class="py-3 rounded-xl font-bold text-xs sm:text-base border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all">
+                        Triple (x3)
+                    </button>
+                </div>
+
+                <!-- Number Pad (1 - 20) & Special Target Buttons -->
+                <div class="grid grid-cols-5 sm:grid-cols-7 gap-1.5 sm:gap-2.5">
+                    <!-- Numbers 1 to 20 -->
+                    <script>
+                        for(let i=1; i<=20; i++) {
+                            document.write(`
+                                <button onclick="selectNumber(${i})" class="h-11 sm:h-14 bg-slate-800 hover:bg-slate-700 active:bg-rose-600 border border-slate-700/60 rounded-xl font-orbitron font-extrabold text-base sm:text-xl text-slate-100 transition-all shadow-sm active:scale-95 flex items-center justify-center">
+                                    ${i}
+                                </button>
+                            `);
+                        }
+                    </script>
+                    
+                    <!-- Special Buttons -->
+                    <button onclick="selectSpecial('OUTER_BULL')" class="col-span-2 h-11 sm:h-14 bg-emerald-950/80 hover:bg-emerald-900 active:bg-emerald-700 border border-emerald-600/50 rounded-xl font-bold text-[10px] sm:text-xs text-emerald-300 transition-all active:scale-95 flex items-center justify-center space-x-1">
+                        <i class="fa-solid fa-circle text-[10px]"></i>
+                        <span>OUTER BULL (25)</span>
+                    </button>
+
+                    <button onclick="selectSpecial('INNER_BULL')" class="col-span-2 h-11 sm:h-14 bg-rose-950/80 hover:bg-rose-900 active:bg-rose-700 border border-rose-600/50 rounded-xl font-bold text-[10px] sm:text-xs text-rose-300 transition-all active:scale-95 flex items-center justify-center space-x-1">
+                        <i class="fa-solid fa-bullseye"></i>
+                        <span>INNER BULL (50)</span>
+                    </button>
+
+                    <button onclick="selectSpecial('MISS')" class="col-span-1 h-11 sm:h-14 bg-slate-950 hover:bg-slate-800 active:bg-slate-700 border border-slate-800 rounded-xl font-bold text-[10px] sm:text-xs text-slate-400 transition-all active:scale-95 flex items-center justify-center">
+                        MISS (0)
+                    </button>
+                </div>
+
+                <!-- Action Control Bar -->
+                <div class="flex items-center space-x-3 pt-2">
+                    <button onclick="clearCurrentDart()" class="w-1/3 py-3.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 border border-slate-700 rounded-xl font-bold text-xs sm:text-sm text-slate-300 transition-all">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> クリア
+                    </button>
+                    <button onclick="registerScore()" class="w-2/3 py-3.5 bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 active:scale-98 rounded-xl font-extrabold text-sm sm:text-lg text-white shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>スコアを送信・登録</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= PAGE 2: RANKING / LEADERBOARD ================= -->
+        <section id="page-ranking" class="hidden space-y-4">
+            <!-- Ranking Navigation Header & Controls -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+                
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    
+                    <!-- Category Filter Tabs -->
+                    <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto no-scrollbar">
+                        <button id="cat-filter-all" onclick="setCategoryFilter('all')" class="px-3.5 py-2 rounded-lg text-xs font-bold bg-rose-600 text-white whitespace-nowrap transition-all">
+                            🏆 すべて
+                        </button>
+                        <button id="cat-filter-junior" onclick="setCategoryFilter('中学生以下')" class="px-3.5 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white whitespace-nowrap transition-all">
+                            👶 中学生以下
+                        </button>
+                        <button id="cat-filter-high" onclick="setCategoryFilter('高校生')" class="px-3.5 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white whitespace-nowrap transition-all">
+                            🎓 高校生
+                        </button>
+                        <button id="cat-filter-parent" onclick="setCategoryFilter('保護者')" class="px-3.5 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white whitespace-nowrap transition-all">
+                            👔 保護者
+                        </button>
+                    </div>
+
+                    <!-- Date Filter & Search & Presentation Trigger -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        
+                        <!-- Today Filter -->
+                        <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+                            <button id="filter-all" onclick="setTimeFilter('all')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white transition-all">
+                                全期間
+                            </button>
+                            <button id="filter-today" onclick="setTimeFilter('today')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition-all">
+                                本日
+                            </button>
+                        </div>
+
+                        <!-- Search Box -->
+                        <div class="relative flex-1 sm:w-48 min-w-[130px]">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                            <input type="text" id="ranking-search" oninput="renderRanking()" placeholder="名前で検索..." 
+                                   class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-rose-500">
+                        </div>
+
+                        <!-- Fullscreen Presentation Button (4 Rankings Grid) -->
+                        <button onclick="openFullscreenPresentation()" class="px-3.5 py-2 bg-gradient-to-r from-amber-500 via-rose-600 to-cyan-500 hover:brightness-110 rounded-xl text-xs font-extrabold text-white shadow-lg shadow-rose-600/20 flex items-center space-x-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-border-all"></i>
+                            <span class="hidden sm:inline">全画面 4分割発表モード</span>
+                            <span class="sm:hidden">4画面モード</span>
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- Stats Summary Strip -->
+                <div id="category-stats-summary" class="flex items-center justify-between text-xs text-slate-400 bg-slate-950/60 rounded-xl px-4 py-2 border border-slate-800/60">
+                    <!-- Updated via JS -->
+                </div>
+
+            </div>
+
+            <!-- Leaderboard List View Container -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-5 shadow-xl min-h-[400px]">
+                <div class="grid grid-cols-12 text-xs font-bold text-slate-400 border-b border-slate-800 pb-3 px-2 sm:px-4">
+                    <div class="col-span-2 sm:col-span-1 text-center">順位</div>
+                    <div class="col-span-5 sm:col-span-5">プレイヤー / チーム名</div>
+                    <div class="col-span-2 sm:col-span-2 text-center">部門</div>
+                    <div class="col-span-3 sm:col-span-2 text-center hidden sm:block">内訳 (1,2,3)</div>
+                    <div class="col-span-3 sm:col-span-2 text-right">合計点</div>
+                </div>
+
+                <!-- Dynamic Items Container -->
+                <div id="ranking-list" class="divide-y divide-slate-800/60 mt-1">
+                    <!-- Populated via JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= PAGE 3: SETTINGS & DATA MANAGEMENT ================= -->
+        <section id="page-settings" class="hidden space-y-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-6">
+                <h2 class="text-lg font-bold text-white border-b border-slate-800 pb-3 flex items-center space-x-2">
+                    <i class="fa-solid fa-sliders text-rose-500"></i>
+                    <span>アプリ・通信設定</span>
+                </h2>
+
+                <!-- Sound Option Switch -->
+                <div class="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800">
+                    <div>
+                        <div class="font-bold text-sm text-slate-200">効果音 (Sound FX)</div>
+                        <div class="text-xs text-slate-400">ハイスコア時や入力時のファンファーレ音</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="sound-toggle" checked class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+                    </label>
+                </div>
+
+                <!-- Export / Import Data Zone -->
+                <div class="space-y-3">
+                    <h3 class="text-sm font-bold text-slate-300">データのバックアップ / 復元</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button onclick="exportData()" class="p-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-download"></i>
+                            <span>スコアデータをJSONで出力</span>
+                        </button>
+                        <label class="p-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 flex items-center justify-center space-x-2 cursor-pointer">
+                            <i class="fa-solid fa-upload"></i>
+                            <span>JSONデータを読み込む</span>
+                            <input type="file" id="import-file" accept=".json" onchange="importData(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Reset Data Zone -->
+                <div class="pt-4 border-t border-slate-800 space-y-3">
+                    <h3 class="text-sm font-bold text-rose-400">危険な操作 (Data Reset)</h3>
+                    <button onclick="showResetModal()" class="w-full p-3.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/80 rounded-xl text-xs font-bold text-rose-300 flex items-center justify-center space-x-2 transition-all">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span>すべてのスコア記録を消去する</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer Status -->
+    <footer class="bg-slate-950 border-t border-slate-900 py-3 px-4 text-center text-xs text-slate-500">
+        文化祭ダーツコーナー 運営サポートシステム &copy; 2026
+    </footer>
+
+    <!-- ================= MODE SELECTION MODAL ================= -->
+    <div id="mode-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl">
+            <div class="text-center space-y-2">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-600 to-cyan-500 flex items-center justify-center text-white text-2xl mx-auto shadow-lg shadow-rose-500/20">
+                    <i class="fa-solid fa-signal"></i>
+                </div>
+                <h3 class="text-xl font-black text-white">アプリ使用モードを選択</h3>
+                <p class="text-xs text-slate-400">端末の役割（iPad本体表示 / スマホリモコン）を選んでください</p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3">
+                <!-- Option 1: iPad / Main Display -->
+                <button onclick="selectAppMode('host')" class="p-4 bg-slate-950 hover:bg-slate-800 border-2 border-rose-500/80 rounded-xl text-left transition-all group flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-rose-600/20 text-rose-400 border border-rose-500/30 flex items-center justify-center text-xl group-hover:scale-105 transition-all">
+                        <i class="fa-solid fa-tablet-screen-button"></i>
+                    </div>
+                    <div>
+                        <div class="font-extrabold text-sm text-white flex items-center space-x-2">
+                            <span>iPad・メイン表示モード</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-rose-600 text-white">親機</span>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-1">iPadを設置し、ランキング表示やプロジェクター出力を行います。スマホからのスコアを受信します。</div>
+                    </div>
+                </button>
+
+                <!-- Option 2: Smartphone Controller -->
+                <button onclick="selectAppMode('client')" class="p-4 bg-slate-950 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500 rounded-xl text-left transition-all group flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center text-xl group-hover:scale-105 transition-all">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                    </div>
+                    <div>
+                        <div class="font-extrabold text-sm text-white flex items-center space-x-2">
+                            <span>スマホ・入力専用モード</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-600 text-white">子機リモコン</span>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-1">手元のスマホで得点を入力し、iPadへリアルタイム送信します。</div>
+                    </div>
+                </button>
+
+                <!-- Option 3: Standalone -->
+                <button onclick="selectAppMode('standalone')" class="p-4 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-left transition-all group flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-laptop"></i>
+                    </div>
+                    <div>
+                        <div class="font-extrabold text-sm text-slate-200">単体モード（通信なし）</div>
+                        <div class="text-xs text-slate-400 mt-1">1台の端末だけで入力とランキング表示を完結させます。</div>
+                    </div>
+                </button>
+            </div>
+
+            <button onclick="closeModeModal()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold rounded-xl">
+                キャンセル
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= QR CODE MODAL FOR IPAD ================= -->
+    <div id="qr-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl">
+            <h3 class="text-lg font-black text-white flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-qrcode text-rose-500"></i>
+                <span>スマホ接続用 QRコード</span>
+            </h3>
+            <p class="text-xs text-slate-400">スマホでこのQRコードを読み込むと、接続済みの入力画面が開きます。</p>
+            
+            <!-- Dynamic QR Code Container -->
+            <div class="bg-white p-4 rounded-xl inline-block shadow-inner">
+                <img id="qr-code-img" src="" alt="QR Code" class="w-48 h-48 mx-auto">
+            </div>
+
+            <!-- Custom URL Input Field (fixes blob: issue) -->
+            <div class="text-left space-y-1">
+                <label for="custom-qr-url" class="text-[11px] text-slate-400 font-bold">手動URL指定 (blob: 表示の際はこちらに実際のURLを入力)</label>
+                <div class="flex space-x-1">
+                    <input type="text" id="custom-qr-url" placeholder="https://..." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-rose-500">
+                    <button onclick="updateQRCodeFromInput()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-lg whitespace-nowrap border border-slate-700">更新</button>
+                </div>
+            </div>
+
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div class="text-[10px] text-slate-500 font-bold uppercase">Room Code</div>
+                <div id="modal-room-code" class="font-orbitron text-2xl font-black text-rose-400 tracking-wider">------</div>
+            </div>
+
+            <button onclick="closeRoomQRModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl">
+                閉じる
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= FULLSCREEN PRESENTATION MODAL (4-GRID LEADERBOARD) ================= -->
+    <div id="presentation-modal" class="fixed inset-0 bg-slate-950 z-50 hidden flex-col p-3 sm:p-6 justify-between overflow-y-auto no-scrollbar">
+        <!-- Close Button & Presentation Header -->
+        <div class="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-2">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-trophy text-amber-400 text-2xl sm:text-3xl animate-bounce"></i>
+                <div>
+                    <h2 class="text-lg sm:text-2xl font-black text-white tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-amber-300 via-rose-400 to-cyan-400">
+                        文化祭ダーツ 👑 リアルタイム 4部門ランキング
+                    </h2>
+                    <p class="text-[10px] sm:text-xs text-slate-400">総合・中学生以下・高校生・保護者のTOP5を同時表示中</p>
+                </div>
+            </div>
+            <button onclick="closeFullscreenPresentation()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs sm:text-sm rounded-xl border border-slate-700 flex items-center space-x-1">
+                <i class="fa-solid fa-xmark"></i>
+                <span class="hidden sm:inline">閉じる (Esc)</span>
+            </button>
+        </div>
+
+        <!-- 4-Grid Multi-Leaderboard Container (2x2 Grid) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-5 flex-grow my-2">
+            
+            <!-- Grid 1: 🏆 総合 (Overall) Ranking -->
+            <div class="bg-slate-900/90 border border-amber-500/50 rounded-2xl p-3 sm:p-4 shadow-2xl flex flex-col justify-between relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 via-rose-500 to-purple-500"></div>
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-lg">🏆</span>
+                            <h3 class="font-extrabold text-sm sm:text-base text-amber-300 tracking-wider">総合ランキング (TOP 5)</h3>
+                        </div>
+                        <span id="pres-count-all" class="text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded-full border border-slate-800">0名</span>
+                    </div>
+                    <div id="pres-list-all" class="space-y-1.5">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid 2: 👶 中学生以下 Ranking -->
+            <div class="bg-slate-900/90 border border-emerald-500/40 rounded-2xl p-3 sm:p-4 shadow-2xl flex flex-col justify-between relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-400"></div>
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-lg">👶</span>
+                            <h3 class="font-extrabold text-sm sm:text-base text-emerald-300 tracking-wider">中学生以下 (TOP 5)</h3>
+                        </div>
+                        <span id="pres-count-junior" class="text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded-full border border-slate-800">0名</span>
+                    </div>
+                    <div id="pres-list-junior" class="space-y-1.5">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid 3: 🎓 高校生 Ranking -->
+            <div class="bg-slate-900/90 border border-rose-500/40 rounded-2xl p-3 sm:p-4 shadow-2xl flex flex-col justify-between relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 to-pink-500"></div>
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-lg">🎓</span>
+                            <h3 class="font-extrabold text-sm sm:text-base text-rose-300 tracking-wider">高校生 (TOP 5)</h3>
+                        </div>
+                        <span id="pres-count-high" class="text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded-full border border-slate-800">0名</span>
+                    </div>
+                    <div id="pres-list-high" class="space-y-1.5">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid 4: 👔 保護者 Ranking -->
+            <div class="bg-slate-900/90 border border-purple-500/40 rounded-2xl p-3 sm:p-4 shadow-2xl flex flex-col justify-between relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-indigo-500"></div>
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-lg">👔</span>
+                            <h3 class="font-extrabold text-sm sm:text-base text-purple-300 tracking-wider">保護者 (TOP 5)</h3>
+                        </div>
+                        <span id="pres-count-parent" class="text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded-full border border-slate-800">0名</span>
+                    </div>
+                    <div id="pres-list-parent" class="space-y-1.5">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer Banner -->
+        <div class="text-center text-slate-400 font-bold text-xs sm:text-sm tracking-widest uppercase border-t border-slate-800/80 pt-2">
+            🎯 3投の合計（最大150点）でハイスコアを目指そう！ 🎯
+        </div>
+    </div>
+
+    <!-- ================= CONFIRM RESET MODAL ================= -->
+    <div id="reset-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div class="w-12 h-12 rounded-full bg-rose-950 border border-rose-800 flex items-center justify-center text-rose-500 text-xl mx-auto">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="text-lg font-extrabold text-white text-center">本当に全データを消去しますか？</h3>
+            <p class="text-xs text-slate-400 text-center leading-relaxed">
+                これまでに登録されたすべてのプレイヤーのスコアデータが削除されます。この操作は取り消せません。
+            </p>
+            <div class="flex space-x-3 pt-2">
+                <button onclick="closeResetModal()" class="w-1/2 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-300">
+                    キャンセル
+                </button>
+                <button onclick="confirmResetData()" class="w-1/2 py-2.5 bg-rose-600 hover:bg-rose-500 rounded-xl text-xs font-bold text-white shadow-lg shadow-rose-600/30">
+                    全データを削除
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP SCRIPT LOGIC -->
+    <script>
+        // Data Structures & Application State
+        let currentDartIndex = 0; // 0, 1, 2
+        let currentMultiplier = 1; // 1, 2, 3
+        let activeCategoryInput = '高校生'; // '中学生以下' | '高校生' | '保護者'
+        let activeCategoryFilter = 'all'; // 'all' | '中学生以下' | '高校生' | '保護者'
+        let activeTimeFilter = 'all'; // 'all' | 'today'
+
+        // Current Dart Selection Array [ {val: 'T20', pts: 60}, ... ]
+        let currentDarts = [
+            { val: '-', pts: 0 },
+            { val: '-', pts: 0 },
+            { val: '-', pts: 0 }
+        ];
+
+        // Scores Stored Array
+        let scoresData = [];
+
+        // PeerJS & Realtime Sync State
+        let appMode = 'host'; // 'host' (iPad) | 'client' (Smartphone) | 'standalone'
+        let peer = null;
+        let peerConnections = []; // Array of client connections for Host
+        let hostConn = null; // Connection to Host for Client
+        let roomCode = '';
+
+        // Load Initial Data from localStorage & URL Parameters
+        window.onload = function() {
+            const saved = localStorage.getItem('cultural_festival_darts_scores');
+            if (saved) {
+                try {
+                    scoresData = JSON.parse(saved);
+                    scoresData.forEach(item => {
+                        if (!item.category) item.category = '高校生';
+                    });
+                } catch(e) {
+                    scoresData = [];
+                }
+            }
+
+            selectInputCategory('高校生');
+            updateDartCardsUI();
+            renderRanking();
+
+            // Sanitize URL for room parameters (cleaning blob: or accidental prefix)
+            let cleanSearch = window.location.search;
+            if (cleanSearch.includes('blob:')) {
+                cleanSearch = cleanSearch.replace(/^.*?\?/, '?');
+            }
+
+            const urlParams = new URLSearchParams(cleanSearch);
+            const roomParam = urlParams.get('room');
+
+            if (roomParam) {
+                selectAppMode('client');
+                const sanitizedCode = roomParam.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                document.getElementById('input-room-code').value = sanitizedCode;
+                setTimeout(() => connectToHost(), 500);
+            } else {
+                initHostMode(); // Default to Host/iPad Mode
+            }
+        };
+
+        // Save Data Helper
+        function saveData() {
+            localStorage.setItem('cultural_festival_darts_scores', JSON.stringify(scoresData));
+        }
+
+        // ================= PEERJS REALTIME NETWORKING =================
+
+        // Generate Random 6-Character Room ID
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        // Initialize iPad / Host Mode
+        function initHostMode() {
+            appMode = 'host';
+            roomCode = generateRoomCode();
+            document.getElementById('room-code-display').textContent = roomCode;
+            document.getElementById('modal-room-code').textContent = roomCode;
+            
+            // Update UI Header Elements
+            document.getElementById('app-mode-badge').innerHTML = `<i class="fa-solid fa-tablet-screen-button text-rose-400 mr-1"></i> iPad・メイン表示`;
+            document.getElementById('host-controls').classList.remove('hidden');
+            document.getElementById('client-controls').classList.add('hidden');
+            document.getElementById('client-controls').classList.remove('flex');
+
+            updateSyncStatus('connecting', '通信準備中...');
+
+            // Create Peer with prefixed ID
+            const peerId = 'cf-darts-' + roomCode;
+            peer = new Peer(peerId);
+
+            peer.on('open', (id) => {
+                updateSyncStatus('connected', '接続受取待ち');
+            });
+
+            peer.on('connection', (conn) => {
+                peerConnections.push(conn);
+                updateSyncStatus('connected', `スマホ ${peerConnections.length}台 接続中`);
+
+                conn.on('data', (data) => {
+                    handleIncomingNetworkData(data, conn);
+                });
+
+                conn.on('close', () => {
+                    peerConnections = peerConnections.filter(c => c !== conn);
+                    updateSyncStatus('connected', peerConnections.length > 0 ? `スマホ ${peerConnections.length}台 接続中` : '接続受取待ち');
+                });
+
+                // Send current scores to newly connected client
+                conn.send({ type: 'SYNC_FULL_DATA', data: scoresData });
+            });
+
+            peer.on('error', (err) => {
+                updateSyncStatus('disconnected', '接続エラー');
+            });
+        }
+
+        // Connect Smartphone Client to Host
+        function connectToHost() {
+            let inputCode = document.getElementById('input-room-code').value.trim().toUpperCase();
+            inputCode = inputCode.replace(/[^A-Z0-9]/g, '');
+
+            if (inputCode.length !== 6) {
+                showToast('6桁のルームIDを入力してください');
+                return;
+            }
+
+            appMode = 'client';
+            roomCode = inputCode;
+            updateSyncStatus('connecting', '接続中...');
+
+            if (peer) peer.destroy();
+            peer = new Peer();
+
+            peer.on('open', (id) => {
+                const targetPeerId = 'cf-darts-' + roomCode;
+                hostConn = peer.connect(targetPeerId);
+
+                hostConn.on('open', () => {
+                    updateSyncStatus('connected', 'iPadに接続完了');
+                    showToast('iPadへのリアルタイム接続に成功しました！');
+                });
+
+                hostConn.on('data', (data) => {
+                    if (data.type === 'SYNC_FULL_DATA') {
+                        scoresData = data.data;
+                        saveData();
+                        renderRanking();
+                    }
+                });
+
+                hostConn.on('close', () => {
+                    updateSyncStatus('disconnected', '接続切断');
+                    showToast('iPadとの接続が切断されました');
+                });
+
+                hostConn.on('error', () => {
+                    updateSyncStatus('disconnected', '接続エラー');
+                });
+            });
+
+            peer.on('error', (err) => {
+                updateSyncStatus('disconnected', '接続失敗');
+                showToast('iPadが見つかりません。コードを確認してください');
+            });
+        }
+
+        // Network Message Router
+        function handleIncomingNetworkData(data, conn) {
+            if (data.type === 'NEW_SCORE_SUBMITTED') {
+                const record = data.payload;
+                scoresData.push(record);
+                saveData();
+                renderRanking();
+
+                // Trigger celebrations on Host / iPad
+                if (record.total >= 100) {
+                    triggerCelebration();
+                } else {
+                    playSuccessSound();
+                }
+
+                showToast(`📥 [${record.category}] ${record.name} さんのスコア (${record.total}点) を受信！`);
+
+                // Broadcast updated full data array to all connected clients
+                broadcastToClients({ type: 'SYNC_FULL_DATA', data: scoresData });
+            }
+        }
+
+        function broadcastToClients(data) {
+            peerConnections.forEach(conn => {
+                if (conn.open) {
+                    conn.send(data);
+                }
+            });
+        }
+
+        function updateSyncStatus(state, text) {
+            const dot = document.getElementById('status-dot');
+            const label = document.getElementById('status-text');
+
+            label.textContent = text;
+            if (state === 'connected') {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse inline-block";
+            } else if (state === 'connecting') {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping inline-block";
+            } else {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-slate-500 inline-block";
+            }
+        }
+
+        // App Mode Switches
+        function selectAppMode(mode) {
+            closeModeModal();
+            if (mode === 'host') {
+                initHostMode();
+            } else if (mode === 'client') {
+                appMode = 'client';
+                document.getElementById('app-mode-badge').innerHTML = `<i class="fa-solid fa-mobile-screen-button text-cyan-400 mr-1"></i> スマホ入力`;
+                document.getElementById('host-controls').classList.add('hidden');
+                document.getElementById('client-controls').classList.remove('hidden');
+                document.getElementById('client-controls').classList.add('flex');
+                updateSyncStatus('disconnected', '未接続');
+                switchTab('input');
+            } else {
+                appMode = 'standalone';
+                document.getElementById('app-mode-badge').innerHTML = `<i class="fa-solid fa-laptop text-slate-400 mr-1"></i> 単体モード`;
+                document.getElementById('host-controls').classList.add('hidden');
+                document.getElementById('client-controls').classList.add('hidden');
+                document.getElementById('client-controls').classList.remove('flex');
+                if (peer) peer.destroy();
+                updateSyncStatus('disconnected', '単体動作');
+            }
+        }
+
+        function toggleModeSelectionModal() {
+            document.getElementById('mode-modal').classList.remove('hidden');
+        }
+
+        function closeModeModal() {
+            document.getElementById('mode-modal').classList.add('hidden');
+        }
+
+        function generateCleanQRURL(targetBaseUrl = null) {
+            let baseUrl = targetBaseUrl;
+
+            if (!baseUrl) {
+                // Strip blob: or internal prefixes
+                let fullUrl = window.location.href;
+                if (fullUrl.startsWith('blob:')) {
+                    fullUrl = fullUrl.replace(/^blob:/, '');
+                }
+                baseUrl = fullUrl.split('?')[0];
+            }
+
+            return `${baseUrl}?room=${roomCode}`;
+        }
+
+        function showRoomQRModal() {
+            const modal = document.getElementById('qr-modal');
+            const joinUrl = generateCleanQRURL();
+            
+            document.getElementById('custom-qr-url').value = joinUrl;
+
+            // Generate QR Code via reliable SVG API
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(joinUrl)}`;
+            document.getElementById('qr-code-img').src = qrApiUrl;
+            
+            modal.classList.remove('hidden');
+        }
+
+        function updateQRCodeFromInput() {
+            const customUrl = document.getElementById('custom-qr-url').value.trim();
+            if (!customUrl) return;
+
+            let finalUrl = customUrl;
+            if (!finalUrl.includes('room=')) {
+                finalUrl += (finalUrl.includes('?') ? '&' : '?') + `room=${roomCode}`;
+            }
+
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(finalUrl)}`;
+            document.getElementById('qr-code-img').src = qrApiUrl;
+            showToast('QRコードを更新しました');
+        }
+
+        function closeRoomQRModal() {
+            document.getElementById('qr-modal').classList.add('hidden');
+        }
+
+        // ================= SCORE INPUT LOGIC =================
+
+        function selectInputCategory(cat) {
+            activeCategoryInput = cat;
+            const badge = document.getElementById('selected-category-badge');
+            badge.textContent = cat;
+
+            const cats = ['junior', 'high', 'parent'];
+            const catMap = { '中学生以下': 'junior', '高校生': 'high', '保護者': 'parent' };
+
+            cats.forEach(c => {
+                const btn = document.getElementById(`cat-btn-${c}`);
+                if (c === catMap[cat]) {
+                    btn.className = "py-2.5 px-2 text-xs sm:text-sm font-bold rounded-xl border border-rose-500 bg-rose-600 text-white shadow-md transition-all text-center truncate";
+                } else {
+                    btn.className = "py-2.5 px-2 text-xs sm:text-sm font-bold rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all text-center truncate";
+                }
+            });
+        }
+
+        function switchTab(tab) {
+            document.getElementById('page-input').classList.add('hidden');
+            document.getElementById('page-ranking').classList.add('hidden');
+            document.getElementById('page-settings').classList.add('hidden');
+
+            document.getElementById('nav-input').className = "flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50";
+            document.getElementById('nav-ranking').className = "flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50";
+            document.getElementById('nav-settings').className = "flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-700/50";
+
+            if (tab === 'input') {
+                document.getElementById('page-input').classList.remove('hidden');
+                document.getElementById('nav-input').className = "flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 bg-rose-600 text-white shadow-md";
+            } else if (tab === 'ranking') {
+                document.getElementById('page-ranking').classList.remove('hidden');
+                document.getElementById('nav-ranking').className = "flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 bg-rose-600 text-white shadow-md";
+                renderRanking();
+            } else if (tab === 'settings') {
+                document.getElementById('page-settings').classList.remove('hidden');
+                document.getElementById('nav-settings').className = "flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-200 bg-rose-600 text-white shadow-md";
+            }
+        }
+
+        function setActiveDart(index) {
+            currentDartIndex = index;
+            updateDartCardsUI();
+        }
+
+        function setMultiplier(mult) {
+            currentMultiplier = mult;
+            [1, 2, 3].forEach(m => {
+                const btn = document.getElementById(`mult-${m}`);
+                if (m === mult) {
+                    btn.className = "py-3 rounded-xl font-bold text-xs sm:text-base border border-slate-700 bg-rose-600 text-white shadow-md transition-all";
+                } else {
+                    btn.className = "py-3 rounded-xl font-bold text-xs sm:text-base border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all";
+                }
+            });
+        }
+
+        function selectNumber(num) {
+            const pts = num * currentMultiplier;
+            let label = num.toString();
+            if (currentMultiplier === 2) label = 'D' + num;
+            if (currentMultiplier === 3) label = 'T' + num;
+
+            currentDarts[currentDartIndex] = { val: label, pts: pts };
+            playBeepSound(400 + num * 20);
+
+            if (currentDartIndex < 2) {
+                currentDartIndex++;
+            }
+            setMultiplier(1);
+            updateDartCardsUI();
+        }
+
+        function selectSpecial(type) {
+            if (type === 'OUTER_BULL') {
+                currentDarts[currentDartIndex] = { val: 'BULL', pts: 25 };
+                playBeepSound(700);
+            } else if (type === 'INNER_BULL') {
+                currentDarts[currentDartIndex] = { val: 'D-BULL', pts: 50 };
+                playBeepSound(900);
+            } else if (type === 'MISS') {
+                currentDarts[currentDartIndex] = { val: 'MISS', pts: 0 };
+                playBeepSound(200);
+            }
+
+            if (currentDartIndex < 2) {
+                currentDartIndex++;
+            }
+            setMultiplier(1);
+            updateDartCardsUI();
+        }
+
+        function clearCurrentDart() {
+            currentDarts[currentDartIndex] = { val: '-', pts: 0 };
+            updateDartCardsUI();
+        }
+
+        function updateDartCardsUI() {
+            let total = 0;
+            for (let i = 0; i < 3; i++) {
+                const card = document.getElementById(`dart-card-${i}`);
+                const valElem = document.getElementById(`dart-val-${i}`);
+                const ptsElem = document.getElementById(`dart-pts-${i}`);
+                const indicator = document.getElementById(`active-indicator-${i}`);
+
+                valElem.textContent = currentDarts[i].val;
+                ptsElem.textContent = `${currentDarts[i].pts} pts`;
+                total += currentDarts[i].pts;
+
+                if (i === currentDartIndex) {
+                    card.className = "cursor-pointer bg-slate-900 border-2 border-rose-500 rounded-2xl p-3 sm:p-4 text-center transition-all relative overflow-hidden shadow-lg shadow-rose-950/30";
+                    indicator.classList.remove('hidden');
+                } else {
+                    card.className = "cursor-pointer bg-slate-900 border-2 border-slate-800 rounded-2xl p-3 sm:p-4 text-center transition-all relative overflow-hidden opacity-80 hover:opacity-100";
+                    indicator.classList.add('hidden');
+                }
+            }
+
+            document.getElementById('total-score-display').textContent = total;
+        }
+
+        // REGISTER SCORE & SYNC
+        function registerScore() {
+            const nameInput = document.getElementById('player-name');
+            const name = nameInput.value.trim() || 'ゲスト';
+
+            const totalScore = currentDarts.reduce((sum, d) => sum + d.pts, 0);
+
+            const record = {
+                id: Date.now(),
+                name: name,
+                category: activeCategoryInput,
+                darts: [...currentDarts],
+                total: totalScore,
+                timestamp: new Date().toISOString()
+            };
+
+            if (appMode === 'client' && hostConn && hostConn.open) {
+                // Send Score via Data Channel to iPad/Host
+                hostConn.send({
+                    type: 'NEW_SCORE_SUBMITTED',
+                    payload: record
+                });
+                showToast(`🚀 [${record.category}] ${name} さんのスコア (${totalScore}点) を送信しました！`);
+            } else {
+                // Local Mode / Host Mode
+                scoresData.push(record);
+                saveData();
+
+                if (appMode === 'host') {
+                    broadcastToClients({ type: 'SYNC_FULL_DATA', data: scoresData });
+                }
+
+                if (totalScore >= 100) {
+                    triggerCelebration();
+                } else {
+                    playSuccessSound();
+                }
+
+                showToast(`✨ [${record.category}] ${name} さんのスコア (${totalScore}点) を登録しました！`);
+            }
+
+            // Reset input form
+            currentDarts = [
+                { val: '-', pts: 0 },
+                { val: '-', pts: 0 },
+                { val: '-', pts: 0 }
+            ];
+            currentDartIndex = 0;
+            nameInput.value = '';
+            updateDartCardsUI();
+        }
+
+        // ================= RANKING & LEADERBOARD LOGIC =================
+
+        function setCategoryFilter(category) {
+            activeCategoryFilter = category;
+            const filters = ['all', 'junior', 'high', 'parent'];
+            const filterMap = { 'all': 'all', '中学生以下': 'junior', '高校生': 'high', '保護者': 'parent' };
+
+            filters.forEach(f => {
+                const btn = document.getElementById(`cat-filter-${f}`);
+                if (f === filterMap[category]) {
+                    btn.className = "px-3.5 py-2 rounded-lg text-xs font-bold bg-rose-600 text-white whitespace-nowrap transition-all shadow-md";
+                } else {
+                    btn.className = "px-3.5 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white whitespace-nowrap transition-all";
+                }
+            });
+            renderRanking();
+        }
+
+        function setTimeFilter(filter) {
+            activeTimeFilter = filter;
+            document.getElementById('filter-all').className = filter === 'all' ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white transition-all" : "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition-all";
+            document.getElementById('filter-today').className = filter === 'today' ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white transition-all" : "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition-all";
+            renderRanking();
+        }
+
+        function getFilteredScores(categoryOverride = null) {
+            const query = document.getElementById('ranking-search') ? document.getElementById('ranking-search').value.toLowerCase() : '';
+            const todayStr = new Date().toISOString().split('T')[0];
+            const catToUse = categoryOverride !== null ? categoryOverride : activeCategoryFilter;
+
+            return scoresData.filter(item => {
+                const matchName = item.name.toLowerCase().includes(query);
+                const matchCategory = catToUse === 'all' || item.category === catToUse;
+                if (activeTimeFilter === 'today') {
+                    const itemDate = item.timestamp.split('T')[0];
+                    return matchName && matchCategory && itemDate === todayStr;
+                }
+                return matchName && matchCategory;
+            }).sort((a, b) => b.total - a.total || a.id - b.id);
+        }
+
+        function renderRanking() {
+            const container = document.getElementById('ranking-list');
+            const items = getFilteredScores();
+
+            // Update stats summary strip
+            const statsContainer = document.getElementById('category-stats-summary');
+            const totalParticipants = items.length;
+            const avgScore = totalParticipants > 0 ? (items.reduce((s, i) => s + i.total, 0) / totalParticipants).toFixed(1) : 0;
+            const highestScore = totalParticipants > 0 ? items[0].total : 0;
+
+            const catLabel = activeCategoryFilter === 'all' ? '全体' : activeCategoryFilter;
+            statsContainer.innerHTML = `
+                <div>表示部門: <span class="text-slate-200 font-bold">${catLabel}</span> (${totalParticipants}件)</div>
+                <div>最高点: <span class="text-rose-400 font-orbitron font-bold">${highestScore} pts</span> | 平均点: <span class="text-cyan-400 font-orbitron font-bold">${avgScore} pts</span></div>
+            `;
+
+            if (items.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-slate-500 text-sm">
+                        <i class="fa-solid fa-inbox text-3xl mb-2 block text-slate-600"></i>
+                        該当するスコアデータはありません
+                    </div>
+                `;
+            } else {
+                container.innerHTML = items.map((item, index) => {
+                    const rank = index + 1;
+                    let rankBadge = `<span class="font-orbitron font-extrabold text-slate-400">${rank}</span>`;
+
+                    if (rank === 1) {
+                        rankBadge = `<span class="w-7 h-7 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xs shadow-md shadow-amber-500/40"><i class="fa-solid fa-crown"></i></span>`;
+                    } else if (rank === 2) {
+                        rankBadge = `<span class="w-7 h-7 rounded-full bg-slate-300 text-slate-950 flex items-center justify-center font-black text-xs">2</span>`;
+                    } else if (rank === 3) {
+                        rankBadge = `<span class="w-7 h-7 rounded-full bg-amber-700 text-amber-100 flex items-center justify-center font-black text-xs">3</span>`;
+                    }
+
+                    const dartsStr = item.darts.map(d => d.val).join(' , ');
+                    const categoryBadge = getCategoryBadgeHTML(item.category);
+
+                    return `
+                        <div class="grid grid-cols-12 items-center py-3.5 px-2 sm:px-4 text-sm font-medium hover:bg-slate-800/40 transition-all rounded-xl">
+                            <div class="col-span-2 sm:col-span-1 flex justify-center">${rankBadge}</div>
+                            <div class="col-span-5 sm:col-span-5 font-bold text-white truncate pr-2">${escapeHtml(item.name)}</div>
+                            <div class="col-span-2 sm:col-span-2 text-center">${categoryBadge}</div>
+                            <div class="col-span-3 sm:col-span-2 text-center text-xs text-slate-400 font-orbitron hidden sm:block">${dartsStr}</div>
+                            <div class="col-span-3 sm:col-span-2 text-right font-orbitron font-black text-base text-rose-400">${item.total} <span class="text-xs text-slate-500 font-sans">点</span></div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Also render 4-Grid Presentation list if active
+            render4GridPresentationList();
+        }
+
+        function getCategoryBadgeHTML(cat) {
+            if (cat === '中学生以下') {
+                return `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">👶 中学生以下</span>`;
+            } else if (cat === '保護者') {
+                return `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-500/10 text-purple-400 border border-purple-500/30 whitespace-nowrap">👔 保護者</span>`;
+            }
+            return `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/10 text-rose-400 border border-rose-500/30 whitespace-nowrap">🎓 高校生</span>`;
+        }
+
+        // FULLSCREEN PRESENTATION MODE (SIMULTANEOUS 4-GRID DISPLAY)
+        function openFullscreenPresentation() {
+            const modal = document.getElementById('presentation-modal');
+            render4GridPresentationList();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function render4GridPresentationList() {
+            const categories = [
+                { id: 'all', catName: 'all', countElem: 'pres-count-all', listElem: 'pres-list-all' },
+                { id: 'junior', catName: '中学生以下', countElem: 'pres-count-junior', listElem: 'pres-list-junior' },
+                { id: 'high', catName: '高校生', countElem: 'pres-count-high', listElem: 'pres-list-high' },
+                { id: 'parent', catName: '保護者', countElem: 'pres-count-parent', listElem: 'pres-list-parent' }
+            ];
+
+            categories.forEach(c => {
+                const items = getFilteredScores(c.catName).slice(0, 5); // Top 5
+                const countElem = document.getElementById(c.countElem);
+                const listElem = document.getElementById(c.listElem);
+
+                if (countElem) countElem.textContent = `${items.length}名`;
+
+                if (!listElem) return;
+
+                if (items.length === 0) {
+                    listElem.innerHTML = `<div class="text-center text-slate-500 py-6 text-xs">データなし</div>`;
+                } else {
+                    listElem.innerHTML = items.map((item, index) => {
+                        const rank = index + 1;
+                        let rankBadge = `<span class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-black text-xs font-orbitron">${rank}</span>`;
+                        let borderStyle = "border-slate-800/80 bg-slate-950/60";
+
+                        if (rank === 1) {
+                            rankBadge = `<span class="w-6 h-6 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs shadow-md"><i class="fa-solid fa-crown"></i></span>`;
+                            borderStyle = "border-amber-500/60 bg-amber-950/20";
+                        } else if (rank === 2) {
+                            rankBadge = `<span class="w-6 h-6 rounded-full bg-slate-300 text-slate-950 flex items-center justify-center font-black text-xs">2</span>`;
+                        } else if (rank === 3) {
+                            rankBadge = `<span class="w-6 h-6 rounded-full bg-amber-700 text-amber-100 flex items-center justify-center font-black text-xs">3</span>`;
+                        }
+
+                        return `
+                            <div class="flex items-center justify-between p-2 rounded-xl border ${borderStyle} transition-all">
+                                <div class="flex items-center space-x-2 truncate">
+                                    <div class="flex-shrink-0">${rankBadge}</div>
+                                    <div class="font-extrabold text-xs sm:text-sm text-white truncate">${escapeHtml(item.name)}</div>
+                                </div>
+                                <div class="flex items-baseline space-x-1 flex-shrink-0 pl-2">
+                                    <span class="font-orbitron font-black text-sm sm:text-base text-rose-400">${item.total}</span>
+                                    <span class="text-[9px] text-slate-500 font-bold">pts</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            });
+        }
+
+        function closeFullscreenPresentation() {
+            const modal = document.getElementById('presentation-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // SOUND & AUDIO SYNTHESIS
+        function playBeepSound(freq) {
+            if (!document.getElementById('sound-toggle').checked) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch(e) {}
+        }
+
+        function playSuccessSound() {
+            if (!document.getElementById('sound-toggle').checked) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const notes = [523.25, 659.25, 783.99];
+                notes.forEach((freq, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.1, ctx.currentTime + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.08 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + idx * 0.08);
+                    osc.stop(ctx.currentTime + idx * 0.08 + 0.2);
+                });
+            } catch(e) {}
+        }
+
+        function triggerCelebration() {
+            playSuccessSound();
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 120,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        // RESET & DATA MANAGEMENT
+        function showResetModal() {
+            document.getElementById('reset-modal').classList.remove('hidden');
+        }
+
+        function closeResetModal() {
+            document.getElementById('reset-modal').classList.add('hidden');
+        }
+
+        function confirmResetData() {
+            scoresData = [];
+            localStorage.removeItem('cultural_festival_darts_scores');
+            closeResetModal();
+            renderRanking();
+
+            if (appMode === 'host') {
+                broadcastToClients({ type: 'SYNC_FULL_DATA', data: [] });
+            }
+
+            showToast('すべてのスコアデータを削除しました');
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(scoresData, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", `darts_scores_${new Date().toISOString().slice(0,10)}.json`);
+            dlAnchorElem.click();
+        }
+
+        function importData(event) {
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (Array.isArray(parsed)) {
+                        scoresData = parsed;
+                        scoresData.forEach(item => {
+                            if (!item.category) item.category = '高校生';
+                        });
+                        saveData();
+                        renderRanking();
+                        if (appMode === 'host') {
+                            broadcastToClients({ type: 'SYNC_FULL_DATA', data: scoresData });
+                        }
+                        showToast('データを正常に読み込みました！');
+                    }
+                } catch(err) {
+                    showToast('ファイルの読み込みに失敗しました');
+                }
+            };
+            if (event.target.files[0]) {
+                fileReader.readAsText(event.target.files[0]);
+            }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-6 right-6 bg-slate-800 text-white font-bold text-xs sm:text-sm px-4 py-3 rounded-xl shadow-2xl border border-slate-700 z-50 transition-all duration-300 transform translate-y-4 opacity-0 max-w-xs sm:max-w-md';
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-4', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeFullscreenPresentation();
+            }
+        });
+    </script>
+</body>
+</html>
